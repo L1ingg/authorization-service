@@ -1,0 +1,65 @@
+package com.ling.authservice.user;
+
+import com.ling.authservice.user.identity.Identity;
+import com.ling.authservice.user.identity.IdentityRepository;
+import jakarta.persistence.EntityExistsException;
+import jakarta.persistence.EntityNotFoundException;
+import jakarta.transaction.Transactional;
+import lombok.RequiredArgsConstructor;
+import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.stereotype.Service;
+
+import java.util.Set;
+
+@Service
+@RequiredArgsConstructor
+public class UserService {
+
+    private final UserRepository userRepository;
+    private final IdentityRepository identityRepository;
+    private final PasswordEncoder passwordEncoder;
+
+    public User save(User user) {
+        return userRepository.save(user);
+    }
+
+    @Transactional
+    public User create(String username, String email, String password, Set<Identity> identities, Set<String> roles) {
+
+        if (userRepository.existsByUsername(username)) throw new EntityExistsException("User with username: " + username + " already exists");
+        if (userRepository.existsByEmail(email)) throw new EntityExistsException("User with email: " + email + " already exists");
+        for (Identity identity : identities) {
+            if (identityRepository.existsBySubjectAndIssuer(identity.getSubject(), identity.getIssuer())) throw new EntityExistsException("User already connected to: " + identity.getIssuer());
+        }
+
+        User user = User.builder()
+                .username(username)
+                .email(email)
+                .password(passwordEncoder.encode(password))
+                .identities(identities)
+                .roles(roles == null || roles.isEmpty() ? Set.of("USER") : roles)
+                .build();
+
+        return save(user);
+    }
+
+    public User create(User user) {
+        return create(user.getUsername(), user.getEmail(), user.getPassword(), user.getIdentities(), user.getRoles());
+    }
+
+    public User findByEmail(String email) {
+        return userRepository.findByEmail(email).orElseThrow(() -> new EntityNotFoundException("User not found: " + email));
+    }
+
+    public boolean existsByEmail(String email) {
+        return userRepository.existsByEmail(email);
+    }
+
+    public boolean existsByUsername(String username) {
+        return userRepository.existsByUsername(username);
+    }
+
+    public User findByUsername(String username) {
+        return userRepository.findByUsername(username).orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
+    }
+}

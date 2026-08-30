@@ -1,0 +1,93 @@
+spring:
+  application:
+    name: auth-service
+
+  datasource:
+    url: ${SPRING_DATASOURCE_URL}
+    username: ${SPRING_DATASOURCE_USERNAME}
+    password: ${SPRING_DATASOURCE_PASSWORD}
+
+  flyway:
+    enabled: true
+
+  jpa:
+    hibernate:
+      ddl-auto: validate
+    show-sql: false
+    open-in-view: false
+    properties:
+      hibernate:
+        format_sql: false
+
+  mail:
+    host: ${SPRING_MAIL_HOST}
+    port: ${SPRING_MAIL_PORT}
+    username: ${SPRING_MAIL_USERNAME}
+    password: ${SPRING_MAIL_PASSWORD}
+    properties:
+      mail:
+        smtp:
+          auth: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_AUTH:true}
+          starttls:
+            enable: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE:true}
+
+  security:
+    jwt:
+      secret: ${JWT_SECRET}
+      access-expiration: ${JWT_ACCESS_EXPIRATION:900000}
+      refresh-expiration: ${JWT_REFRESH_EXPIRATION:2592000000}
+
+
+    oauth2:
+      client:
+        registration:
+
+          microsoft:
+            client-name: Microsoft
+            provider: microsoft
+            client-id: ${MICROSOFT_CLIENT_ID}
+            client-secret: ${MICROSOFT_CLIENT_SECRET}
+            authorization-grant-type: authorization_code
+            scope:
+              - openid
+              - profile
+              - email
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+
+          google:
+            client-name: Google
+            provider: google
+            client-id: ${GOOGLE_CLIENT_ID}
+            client-secret: ${GOOGLE_CLIENT_SECRET}
+            authorization-grant-type: authorization_code
+            scope:
+              - openid
+              - profile
+              - email
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+
+        provider:
+          microsoft:
+            authorization-uri: https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize
+            token-uri: https://login.microsoftonline.com/consumers/oauth2/v2.0/token
+            jwk-set-uri: https://login.microsoftonline.com/consumers/discovery/v2.0/keys
+            user-info-uri: https://graph.microsoft.com/oidc/userinfo
+            user-name-attribute: sub
+
+          google:
+            issuer-uri: https://accounts.google.com
+
+server:
+  port: ${SERVER_PORT:8080}
+
+logging:
+  level:
+    root: INFO
+    org.springframework.security: INFO
+    org.springframework.security.oauth2: INFO
+
+app:
+  oauth:
+    client-id: ${APP_OAUTH_CLIENT_ID:web-app}
+    client-secret: ${APP_OAUTH_CLIENT_SECRET:secret}
+    redirect-uri: ${APP_OAUTH_REDIRECT_URI:http://localhost:3000/oauth/callback}
