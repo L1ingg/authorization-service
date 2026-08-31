@@ -28,14 +28,16 @@ import java.util.UUID;
 @EnableConfigurationProperties(OAuthClientProperties.class)
 public class OAuth2ClientConfiguration {
 
-    private final PasswordEncoder passwordEncoder;
     private final OAuthClientProperties properties;
+    private final PasswordEncoder passwordEncoder;
 
     @Bean
     RegisteredClientRepository registeredClientRepository(
             JdbcTemplate jdbcTemplate
     ) {
-        return new JdbcRegisteredClientRepository(jdbcTemplate);
+        return new JdbcRegisteredClientRepository(
+                jdbcTemplate
+        );
     }
 
     @Bean
@@ -75,33 +77,36 @@ public class OAuth2ClientConfiguration {
                 return;
             }
 
-            if (properties.clientSecret() == null ||
-                    properties.clientSecret().isBlank()) {
-                throw new IllegalStateException(
-                        "APP_OAUTH_CLIENT_SECRET is not configured"
-                );
-            }
-
             RegisteredClient client = RegisteredClient
                     .withId(UUID.randomUUID().toString())
+
                     .clientId(properties.clientId())
-                    .clientSecret(
-                            passwordEncoder.encode(properties.clientSecret())
-                    )
 
+                    /**
+                     * SPA = public client.
+                     * Secret в браузере хранить нельзя.
+                     */
                     .clientAuthenticationMethod(
-                            ClientAuthenticationMethod.CLIENT_SECRET_BASIC
+                            ClientAuthenticationMethod.NONE
                     )
 
+                    /**
+                     * Authorization Code + PKCE.
+                     */
                     .authorizationGrantType(
                             AuthorizationGrantType.AUTHORIZATION_CODE
                     )
 
+                    /**
+                     * Для долгоживущей сессии frontend.
+                     */
                     .authorizationGrantType(
                             AuthorizationGrantType.REFRESH_TOKEN
                     )
 
-                    .redirectUri(properties.redirectUri())
+                    .redirectUri(
+                            properties.redirectUri()
+                    )
 
                     .scope(OidcScopes.OPENID)
                     .scope(OidcScopes.PROFILE)
@@ -116,16 +121,24 @@ public class OAuth2ClientConfiguration {
 
                     .tokenSettings(
                             TokenSettings.builder()
+
                                     .accessTokenTimeToLive(
                                             Duration.ofMinutes(15)
                                     )
+
                                     .refreshTokenTimeToLive(
                                             Duration.ofDays(30)
                                     )
+
                                     .authorizationCodeTimeToLive(
                                             Duration.ofMinutes(2)
                                     )
+
+                                    /**
+                                     * Каждый refresh token используется один раз.
+                                     */
                                     .reuseRefreshTokens(false)
+
                                     .build()
                     )
 

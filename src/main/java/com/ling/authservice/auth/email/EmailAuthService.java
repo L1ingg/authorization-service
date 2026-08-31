@@ -31,6 +31,6 @@ public class EmailAuthService {
                 .username(response.username())
                 .password(response.password())
                 .build();
-        userService.create(user);
+        userService.createHashed(user);
     }
 }

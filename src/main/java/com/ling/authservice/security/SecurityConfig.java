@@ -7,6 +7,7 @@ import com.nimbusds.jose.jwk.source.ImmutableJWKSet;
 import com.nimbusds.jose.jwk.source.JWKSource;
 import com.nimbusds.jose.proc.SecurityContext;
 import lombok.RequiredArgsConstructor;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
@@ -16,6 +17,7 @@ import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.OAuth2AuthorizationServerConfiguration;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.FactorGrantedAuthority;
 import org.springframework.security.core.authority.mapping.GrantedAuthoritiesMapper;
@@ -39,79 +41,127 @@ public class SecurityConfig {
 
     private final RsaKeyLoader rsaKeyLoader;
 
+    /**
+     * OAuth2 Authorization Server.
+     *
+     * Обрабатывает:
+     * /oauth2/authorize
+     * /oauth2/token
+     * /oauth2/jwks
+     * /.well-known/*
+     *
+     * Эта часть отвечает за выдачу OAuth2/OIDC токенов.
+     */
     @Bean
     @Order(1)
     SecurityFilterChain authorizationServerSecurityFilterChain(
-            HttpSecurity http) throws Exception {
+            HttpSecurity http,
+            @Value("${app.login-page}") String loginPage
+    ) throws Exception {
 
         http
                 .oauth2AuthorizationServer(authorizationServer -> {
-                    http.securityMatcher(authorizationServer.getEndpointsMatcher());
+                    http.securityMatcher(
+                            authorizationServer.getEndpointsMatcher()
+                    );
 
-                    authorizationServer
-                            .oidc(Customizer.withDefaults());
+                    authorizationServer.oidc(
+                            Customizer.withDefaults()
+                    );
                 })
+
                 .authorizeHttpRequests(auth -> auth
                         .anyRequest().authenticated()
                 )
+
                 .exceptionHandling(exceptions -> exceptions
                         .defaultAuthenticationEntryPointFor(
-                                new LoginUrlAuthenticationEntryPoint("/login"),
-                                new MediaTypeRequestMatcher(MediaType.TEXT_HTML)
+                                new LoginUrlAuthenticationEntryPoint(loginPage),
+                                new MediaTypeRequestMatcher(
+                                        MediaType.TEXT_HTML
+                                )
                         )
                 );
 
         return http.build();
     }
 
+    /**
+     * Bearer-only Resource Server.
+     *
+     * ВСЕ запросы /api/**:
+     *
+     * - stateless
+     * - только Authorization: Bearer <JWT>
+     * - CSRF отключён
+     * - session authentication не используется
+     */
     @Bean
-    AuthorizationServerSettings authorizationServerSettings() {
+    @Order(2)
+    SecurityFilterChain apiSecurityFilterChain(
+            HttpSecurity http
+    ) throws Exception {
+
+        http
+                .securityMatcher("/api/**")
+
+                .csrf(AbstractHttpConfigurer::disable)
+
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(
+                                SessionCreationPolicy.STATELESS
+                        )
+                )
+
+                .authorizeHttpRequests(auth -> auth
+                        .requestMatchers(
+                                "/api/auth/register",
+                                "/api/auth/email/verify"
+                        ).permitAll()
+
+                        .anyRequest().authenticated()
+                )
+
+                .oauth2ResourceServer(oauth2 ->
+                        oauth2.jwt(Customizer.withDefaults())
+                );
+
+        return http.build();
+    }
+
+    @Bean
+    AuthorizationServerSettings authorizationServerSettings(
+            @Value("${app.oauth.issuer}") String issuer
+    ) {
         return AuthorizationServerSettings.builder()
-                .issuer("http://localhost:8080")
+                .issuer(issuer)
                 .build();
     }
 
-    @Order(2)
-    @Bean
-    SecurityFilterChain applicationSecurityFilterChain(HttpSecurity http) throws Exception {
-        http
-                .csrf(AbstractHttpConfigurer::disable)
-                .cors(AbstractHttpConfigurer::disable)
-                .sessionManagement(session ->
-                        session.enableSessionUrlRewriting(false)
-                )
-                .authorizeHttpRequests(auth -> auth
-                        .requestMatchers("/api/auth/register").permitAll()
-                        .requestMatchers("/all").permitAll()
-                        .requestMatchers("/api/auth/email/verify").permitAll()
-                        .anyRequest().authenticated()
-                )
-                .formLogin(Customizer.withDefaults())
-                .oauth2Login(oauth2 -> oauth2
-                        .userInfoEndpoint(userInfo -> userInfo
-                                .userAuthoritiesMapper(oauth2UserAuthoritiesMapper())
-                        )
-                        .defaultSuccessUrl("http://localhost:3000/oauth/callback", true)
-                );
-
-        return http.build();
-    }
-
-
+    /**
+     * Password encoder.
+     */
     @Bean
     PasswordEncoder passwordEncoder() {
-        return PasswordEncoderFactories.createDelegatingPasswordEncoder();
+        return PasswordEncoderFactories
+                .createDelegatingPasswordEncoder();
     }
 
-
+    /**
+     * Mapping authorities для OIDC login.
+     */
     @Bean
     GrantedAuthoritiesMapper oauth2UserAuthoritiesMapper() {
+
         return authorities -> {
-            Set<GrantedAuthority> mapped = new LinkedHashSet<>(authorities);
+
+            Set<GrantedAuthority> mapped =
+                    new LinkedHashSet<>(authorities);
 
             mapped.add(
                     FactorGrantedAuthority.fromAuthority(
-                            FactorGrantedAuthority.AUTHORIZATION_CODE_AUTHORITY
+                            FactorGrantedAuthority
+                                    .AUTHORIZATION_CODE_AUTHORITY
                     )
             );
 
@@ -119,6 +169,9 @@ public class SecurityConfig {
         };
     }
 
+    /**
+     * RSA key pair для подписи JWT.
+     */
     @Bean
     JWKSource<SecurityContext> jwkSource() throws Exception {
 
@@ -138,8 +191,13 @@ public class SecurityConfig {
         return new ImmutableJWKSet<>(jwkSet);
     }
 
+    /**
+     * JWT decoder для Authorization Server.
+     */
     @Bean
-    JwtDecoder jwtDecoder(JWKSource<SecurityContext> jwkSource) {
+    JwtDecoder jwtDecoder(
+            JWKSource<SecurityContext> jwkSource
+    ) {
         return OAuth2AuthorizationServerConfiguration
                 .jwtDecoder(jwkSource);
     }

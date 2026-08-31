@@ -61,7 +61,7 @@ public class SocialAuthService {
                         .username("user_" + generateId())
                         .build();
 
-                user = userService.create(user);
+                user = userService.createHashed(user);
             }
 
             identityService.create(

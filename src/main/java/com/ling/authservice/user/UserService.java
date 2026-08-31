@@ -35,7 +35,7 @@ public class UserService {
         User user = User.builder()
                 .username(username)
                 .email(email)
-                .password(passwordEncoder.encode(password))
+                .password(password)
                 .identities(identities)
                 .roles(roles == null || roles.isEmpty() ? Set.of("USER") : roles)
                 .build();
@@ -44,6 +44,10 @@ public class UserService {
     }
 
     public User create(User user) {
+        return create(user.getUsername(), user.getEmail(), passwordEncoder.encode(user.getPassword()), user.getIdentities(), user.getRoles());
+    }
+
+    public User createHashed(User user) {
         return create(user.getUsername(), user.getEmail(), user.getPassword(), user.getIdentities(), user.getRoles());
     }
 

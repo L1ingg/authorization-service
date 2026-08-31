@@ -32,12 +32,6 @@ spring:
             enable: ${SPRING_MAIL_PROPERTIES_MAIL_SMTP_STARTTLS_ENABLE:true}
 
   security:
-    jwt:
-      secret: ${JWT_SECRET}
-      access-expiration: ${JWT_ACCESS_EXPIRATION:900000}
-      refresh-expiration: ${JWT_REFRESH_EXPIRATION:2592000000}
-
-
     oauth2:
       client:
         registration:
@@ -87,7 +81,9 @@ logging:
     org.springframework.security.oauth2: INFO
 
 app:
+  login-page: ${LOGIN_PAGE:https://localhost:3000/login}
   oauth:
-    client-id: ${APP_OAUTH_CLIENT_ID:web-app}
-    client-secret: ${APP_OAUTH_CLIENT_SECRET:secret}
+    client-id: ${APP_OAUTH_CLIENT_ID}
+    client-secret: ${APP_OAUTH_CLIENT_SECRET}
     redirect-uri: ${APP_OAUTH_REDIRECT_URI:http://localhost:3000/oauth/callback}
+    issuer: ${AUTH_ISSUER:http://localhost:8080}
