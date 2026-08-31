@@ -1,10 +1,8 @@
 package com.ling.authservice.user.identity;
 
 import com.ling.authservice.user.User;
-import com.ling.authservice.user.UserRepository;
 import com.ling.authservice.user.identity.common.IdentityAlreadyExistsException;
 import com.ling.authservice.user.identity.common.IdentityNotFoundException;
-import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;

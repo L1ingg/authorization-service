@@ -10,23 +10,29 @@ import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
 import org.springframework.web.bind.annotation.RestController;
 
-@RequiredArgsConstructor
 @RestController
+@RequiredArgsConstructor
 @RequestMapping("/api/auth")
 public class EmailAuthController {
 
     private final EmailAuthService emailAuthService;
 
     @PostMapping("/register")
-    public ResponseEntity<EmailRegisterResponse> register(@RequestBody RegisterByEmailRequest request) {
-        return ResponseEntity.ok(emailAuthService.register(request));
+    public ResponseEntity<EmailRegisterResponse> register(
+            @RequestBody RegisterByEmailRequest request
+    ) {
+        return ResponseEntity.ok(
+                emailAuthService.register(request)
+        );
     }
 
     @PostMapping("/email/verify")
-    public ResponseEntity<?> verifyEmail(@RequestBody EmailVerificationRequest request) {
+    public ResponseEntity<Void> verifyEmail(
+            @RequestBody EmailVerificationRequest request
+    ) {
+
         emailAuthService.verifyEmail(request);
+
         return ResponseEntity.ok().build();
     }
-
-
 }

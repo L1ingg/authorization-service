@@ -4,8 +4,6 @@ import com.ling.authservice.user.common.UserAlreadyExistsException;
 import com.ling.authservice.user.common.UserNotFoundException;
 import com.ling.authservice.user.identity.Identity;
 import com.ling.authservice.user.identity.IdentityRepository;
-import jakarta.persistence.EntityExistsException;
-import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
 import org.springframework.security.crypto.password.PasswordEncoder;
@@ -26,20 +24,54 @@ public class UserService {
     }
 
     @Transactional
-    public User create(String username, String email, String password, Set<Identity> identities, Set<String> roles) {
+    public User create(
+            String username,
+            String email,
+            String password,
+            Set<Identity> identities,
+            Set<String> roles
+    ) {
 
-        if (userRepository.existsByUsername(username)) throw new UserAlreadyExistsException("User with username: " + username + " already exists");
-        if (userRepository.existsByEmail(email)) throw new UserAlreadyExistsException("User with email: " + email + " already exists");
-        for (Identity identity : identities) {
-            if (identityRepository.existsBySubjectAndIssuer(identity.getSubject(), identity.getIssuer())) throw new UserAlreadyExistsException("User already connected to: " + identity.getIssuer());
+        if (userRepository.existsByUsername(username)) {
+            throw new UserAlreadyExistsException(
+                    "User with username: " + username + " already exists"
+            );
+        }
+
+        if (userRepository.existsByEmail(email)) {
+            throw new UserAlreadyExistsException(
+                    "User with email: " + email + " already exists"
+            );
+        }
+
+        if (identities != null) {
+            for (Identity identity : identities) {
+                if (identityRepository.existsBySubjectAndIssuer(
+                        identity.getSubject(),
+                        identity.getIssuer()
+                )) {
+                    throw new UserAlreadyExistsException(
+                            "User already connected to: "
+                                    + identity.getIssuer()
+                    );
+                }
+            }
         }
 
         User user = User.builder()
                 .username(username)
                 .email(email)
                 .password(password)
-                .identities(identities)
-                .roles(roles == null || roles.isEmpty() ? Set.of("USER") : roles)
+                .identities(
+                        identities == null
+                                ? Set.of()
+                                : identities
+                )
+                .roles(
+                        roles == null || roles.isEmpty()
+                                ? Set.of("USER")
+                                : roles
+                )
                 .build();
 
         return save(user);

@@ -1,5 +1,6 @@
 package com.ling.authservice.security;
 
+import com.ling.authservice.auth.oauth.SocialAuthService;
 import com.ling.authservice.security.rsa.RsaKeyLoader;
 import com.nimbusds.jose.jwk.JWKSet;
 import com.nimbusds.jose.jwk.RSAKey;
@@ -16,13 +17,15 @@ import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
 import org.springframework.security.config.annotation.web.configuration.OAuth2AuthorizationServerConfiguration;
-import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.core.GrantedAuthority;
 import org.springframework.security.core.authority.FactorGrantedAuthority;
 import org.springframework.security.core.authority.mapping.GrantedAuthoritiesMapper;
 import org.springframework.security.crypto.factory.PasswordEncoderFactories;
 import org.springframework.security.crypto.password.PasswordEncoder;
+import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserRequest;
+import org.springframework.security.oauth2.client.userinfo.OAuth2UserService;
+import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.security.oauth2.jwt.JwtDecoder;
 import org.springframework.security.oauth2.server.authorization.settings.AuthorizationServerSettings;
 import org.springframework.security.web.SecurityFilterChain;
@@ -42,32 +45,30 @@ public class SecurityConfig {
     private final RsaKeyLoader rsaKeyLoader;
 
     /**
-     * OAuth2 Authorization Server.
+     * Authorization Server.
      *
-     * Обрабатывает:
+     * Обрабатывает OAuth2/OIDC endpoints:
+     *
      * /oauth2/authorize
      * /oauth2/token
      * /oauth2/jwks
      * /.well-known/*
-     *
-     * Эта часть отвечает за выдачу OAuth2/OIDC токенов.
      */
     @Bean
     @Order(1)
     SecurityFilterChain authorizationServerSecurityFilterChain(
-            HttpSecurity http,
-            @Value("${app.login-page}") String loginPage
+            HttpSecurity http
     ) throws Exception {
 
         http
                 .oauth2AuthorizationServer(authorizationServer -> {
+
                     http.securityMatcher(
                             authorizationServer.getEndpointsMatcher()
                     );
 
-                    authorizationServer.oidc(
-                            Customizer.withDefaults()
-                    );
+                    authorizationServer
+                            .oidc(Customizer.withDefaults());
                 })
 
                 .authorizeHttpRequests(auth -> auth
@@ -76,7 +77,9 @@ public class SecurityConfig {
 
                 .exceptionHandling(exceptions -> exceptions
                         .defaultAuthenticationEntryPointFor(
-                                new LoginUrlAuthenticationEntryPoint(loginPage),
+                                new LoginUrlAuthenticationEntryPoint(
+                                        "/login"
+                                ),
                                 new MediaTypeRequestMatcher(
                                         MediaType.TEXT_HTML
                                 )
@@ -87,55 +90,109 @@ public class SecurityConfig {
     }
 
     /**
-     * Bearer-only Resource Server.
+     * Browser / BFF.
      *
-     * ВСЕ запросы /api/**:
+     * Здесь browser работает через HttpSession.
      *
-     * - stateless
-     * - только Authorization: Bearer <JWT>
-     * - CSRF отключён
-     * - session authentication не используется
+     * Google/Microsoft login:
+     *
+     * /oauth2/authorization/google
+     * /oauth2/authorization/microsoft
+     *
+     * Local login:
+     *
+     * POST /login
+     *
+     * Browser получает JSESSIONID.
      */
     @Bean
     @Order(2)
-    SecurityFilterChain apiSecurityFilterChain(
-            HttpSecurity http
+    SecurityFilterChain applicationSecurityFilterChain(
+            HttpSecurity http,
+            OAuth2UserService<OidcUserRequest, OidcUser> oidcUserService,
+            @Value("${app.login-page:/login}") String loginPage
     ) throws Exception {
 
         http
-                .securityMatcher("/api/**")
-
-                .csrf(AbstractHttpConfigurer::disable)
-
-                .sessionManagement(session ->
-                        session.sessionCreationPolicy(
-                                SessionCreationPolicy.STATELESS
-                        )
-                )
-
                 .authorizeHttpRequests(auth -> auth
+
+                        /*
+                         * Публичные endpoints.
+                         */
                         .requestMatchers(
+                                "/login",
+                                "/oauth2/authorization/**",
+                                "/login/oauth2/code/**",
+                                "/error",
+                                "/css/**",
+                                "/js/**",
                                 "/api/auth/register",
                                 "/api/auth/email/verify"
                         ).permitAll()
 
-                        .anyRequest().authenticated()
+                        /*
+                         * Browser API.
+                         *
+                         * Здесь authentication берётся
+                         * из HttpSession.
+                         */
+                        .requestMatchers("/api/**")
+                        .authenticated()
+
+                        /*
+                         * Всё остальное тоже требует login.
+                         */
+                        .anyRequest()
+                        .authenticated()
                 )
 
-                .oauth2ResourceServer(oauth2 ->
-                        oauth2.jwt(Customizer.withDefaults())
-                );
+                /*
+                 * Browser authentication = session.
+                 */
+                .sessionManagement(session ->
+                        session.sessionCreationPolicy(
+                                SessionCreationPolicy.IF_REQUIRED
+                        )
+                )
+
+                /*
+                 * Обычный login по email/password.
+                 *
+                 * GET  /login
+                 * POST /login
+                 */
+                .formLogin(form -> form
+                        .loginPage(loginPage)
+                        .loginProcessingUrl("/login")
+                        .permitAll()
+                )
+
+                /*
+                 * Google / Microsoft.
+                 */
+                .oauth2Login(oauth2 -> oauth2
+                        .loginPage(loginPage)
+                        .userInfoEndpoint(userInfo -> userInfo
+                                .oidcUserService(oidcUserService)
+                        )
+                )
+
+                /*
+                 * Backend является OAuth2 Client.
+                 */
+                .oauth2Client(Customizer.withDefaults());
 
         return http.build();
     }
 
+    /**
+     * Наш OIDC user service.
+     */
     @Bean
-    AuthorizationServerSettings authorizationServerSettings(
-            @Value("${app.oauth.issuer}") String issuer
+    OAuth2UserService<OidcUserRequest, OidcUser> oidcUserService(
+            SocialAuthService socialAuthService
     ) {
-        return AuthorizationServerSettings.builder()
-                .issuer(issuer)
-                .build();
+        return socialAuthService::loadUser;
     }
 
     /**
@@ -148,7 +205,7 @@ public class SecurityConfig {
     }
 
     /**
-     * Mapping authorities для OIDC login.
+     * Authorities для OIDC users.
      */
     @Bean
     GrantedAuthoritiesMapper oauth2UserAuthoritiesMapper() {
@@ -186,9 +243,9 @@ public class SecurityConfig {
                 .keyID("auth-key")
                 .build();
 
-        JWKSet jwkSet = new JWKSet(rsaKey);
-
-        return new ImmutableJWKSet<>(jwkSet);
+        return new ImmutableJWKSet<>(
+                new JWKSet(rsaKey)
+        );
     }
 
     /**
@@ -202,5 +259,15 @@ public class SecurityConfig {
                 .jwtDecoder(jwkSource);
     }
 
-
+    /**
+     * OAuth issuer.
+     */
+    @Bean
+    AuthorizationServerSettings authorizationServerSettings(
+            @Value("${app.oauth.issuer}") String issuer
+    ) {
+        return AuthorizationServerSettings.builder()
+                .issuer(issuer)
+                .build();
+    }
 }
