@@ -1,5 +1,7 @@
 package com.ling.authservice.user;
 
+import com.ling.authservice.user.common.UserAlreadyExistsException;
+import com.ling.authservice.user.common.UserNotFoundException;
 import com.ling.authservice.user.identity.Identity;
 import com.ling.authservice.user.identity.IdentityRepository;
 import jakarta.persistence.EntityExistsException;
@@ -26,10 +28,10 @@ public class UserService {
     @Transactional
     public User create(String username, String email, String password, Set<Identity> identities, Set<String> roles) {
 
-        if (userRepository.existsByUsername(username)) throw new EntityExistsException("User with username: " + username + " already exists");
-        if (userRepository.existsByEmail(email)) throw new EntityExistsException("User with email: " + email + " already exists");
+        if (userRepository.existsByUsername(username)) throw new UserAlreadyExistsException("User with username: " + username + " already exists");
+        if (userRepository.existsByEmail(email)) throw new UserAlreadyExistsException("User with email: " + email + " already exists");
         for (Identity identity : identities) {
-            if (identityRepository.existsBySubjectAndIssuer(identity.getSubject(), identity.getIssuer())) throw new EntityExistsException("User already connected to: " + identity.getIssuer());
+            if (identityRepository.existsBySubjectAndIssuer(identity.getSubject(), identity.getIssuer())) throw new UserAlreadyExistsException("User already connected to: " + identity.getIssuer());
         }
 
         User user = User.builder()
@@ -52,7 +54,7 @@ public class UserService {
     }
 
     public User findByEmail(String email) {
-        return userRepository.findByEmail(email).orElseThrow(() -> new EntityNotFoundException("User not found: " + email));
+        return userRepository.findByEmail(email).orElseThrow(() -> new UserNotFoundException("User not found: " + email));
     }
 
     public boolean existsByEmail(String email) {
@@ -64,6 +66,6 @@ public class UserService {
     }
 
     public User findByUsername(String username) {
-        return userRepository.findByUsername(username).orElseThrow(() -> new EntityNotFoundException("User not found: " + username));
+        return userRepository.findByUsername(username).orElseThrow(() -> new UserNotFoundException("User not found: " + username));
     }
 }

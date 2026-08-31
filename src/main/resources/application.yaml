@@ -36,18 +36,6 @@ spring:
       client:
         registration:
 
-          microsoft:
-            client-name: Microsoft
-            provider: microsoft
-            client-id: ${MICROSOFT_CLIENT_ID}
-            client-secret: ${MICROSOFT_CLIENT_SECRET}
-            authorization-grant-type: authorization_code
-            scope:
-              - openid
-              - profile
-              - email
-            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
-
           google:
             client-name: Google
             provider: google
@@ -60,16 +48,33 @@ spring:
               - email
             redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
 
+          microsoft:
+            client-name: Microsoft
+            provider: microsoft
+            client-id: ${MICROSOFT_CLIENT_ID}
+            client-secret: ${MICROSOFT_CLIENT_SECRET}
+            authorization-grant-type: authorization_code
+            scope:
+              - openid
+              - profile
+              - email
+            redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
+
         provider:
+
+          google:
+            authorization-uri: https://accounts.google.com/o/oauth2/v2/auth
+            token-uri: https://oauth2.googleapis.com/token
+            jwk-set-uri: https://www.googleapis.com/oauth2/v3/certs
+            user-info-uri: https://openidconnect.googleapis.com/v1/userinfo
+            user-name-attribute: sub
+
           microsoft:
             authorization-uri: https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize
             token-uri: https://login.microsoftonline.com/consumers/oauth2/v2.0/token
             jwk-set-uri: https://login.microsoftonline.com/consumers/discovery/v2.0/keys
             user-info-uri: https://graph.microsoft.com/oidc/userinfo
             user-name-attribute: sub
-
-          google:
-            issuer-uri: https://accounts.google.com
 
 server:
   port: ${SERVER_PORT:8080}

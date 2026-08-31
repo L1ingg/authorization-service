@@ -2,7 +2,8 @@ package com.ling.authservice.user.identity;
 
 import com.ling.authservice.user.User;
 import com.ling.authservice.user.UserRepository;
-import jakarta.persistence.EntityExistsException;
+import com.ling.authservice.user.identity.common.IdentityAlreadyExistsException;
+import com.ling.authservice.user.identity.common.IdentityNotFoundException;
 import jakarta.persistence.EntityNotFoundException;
 import jakarta.transaction.Transactional;
 import lombok.RequiredArgsConstructor;
@@ -12,7 +13,6 @@ import org.springframework.stereotype.Service;
 @RequiredArgsConstructor
 public class IdentityService {
 
-    private final UserRepository userRepository;
     private final IdentityRepository identityRepository;
 
     public Identity save(Identity identity) {
@@ -21,7 +21,7 @@ public class IdentityService {
 
     @Transactional
     public Identity create(String issuer, String subject, User user) {
-        if (identityRepository.existsBySubjectAndIssuer(subject, issuer)) throw new EntityExistsException(issuer + " is already connected");
+        if (identityRepository.existsBySubjectAndIssuer(subject, issuer)) throw new IdentityAlreadyExistsException(issuer + " is already connected");
 
         Identity identity = new Identity();
         identity.setIssuer(issuer);
@@ -36,7 +36,7 @@ public class IdentityService {
     }
 
     public Identity findBy(String subject, String issuer) {
-        return identityRepository.findBySubjectAndIssuer(subject, issuer).orElseThrow(() -> new EntityNotFoundException("Identity not found: " + issuer));
+        return identityRepository.findBySubjectAndIssuer(subject, issuer).orElseThrow(() -> new IdentityNotFoundException("Identity not found: " + issuer));
     }
 
     public boolean existsBy(String subject, String issuer) {

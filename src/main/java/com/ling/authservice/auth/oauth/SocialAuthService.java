@@ -5,11 +5,12 @@ import com.ling.authservice.user.UserService;
 import com.ling.authservice.user.identity.IdentityService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.context.annotation.Bean;
-import org.springframework.security.oauth2.client.userinfo.DefaultOAuth2UserService;
-import org.springframework.security.oauth2.client.userinfo.OAuth2UserRequest;
+import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserService;
 import org.springframework.security.oauth2.client.userinfo.OAuth2UserService;
-import org.springframework.security.oauth2.core.user.OAuth2User;
+import org.springframework.security.oauth2.client.oidc.userinfo.OidcUserRequest;
+import org.springframework.security.oauth2.core.oidc.user.OidcUser;
 import org.springframework.stereotype.Component;
+import org.springframework.util.StringUtils;
 
 import java.util.concurrent.ThreadLocalRandom;
 
@@ -21,38 +22,47 @@ public class SocialAuthService {
     private final IdentityService identityService;
 
     @Bean
-    public OAuth2UserService<OAuth2UserRequest, OAuth2User> oauth2UserService() {
+    public OAuth2UserService<OidcUserRequest, OidcUser> oidcUserService() {
 
-        DefaultOAuth2UserService delegate = new DefaultOAuth2UserService();
+        OidcUserService delegate = new OidcUserService();
 
-        return request -> {
+        return userRequest -> {
 
-            OAuth2User oauth2User = delegate.loadUser(request);
+            OidcUser oidcUser = delegate.loadUser(userRequest);
 
-            String subject = oauth2User.getAttribute("sub");
+            String subject = oidcUser.getSubject();
 
-            if (subject == null || subject.isBlank()) {
+            if (!StringUtils.hasText(subject)) {
                 throw new IllegalStateException(
                         "OIDC provider did not return subject"
                 );
             }
 
-            String issuer = request
+            String issuer = userRequest
                     .getClientRegistration()
                     .getProviderDetails()
                     .getIssuerUri();
 
-            if (issuer == null || issuer.isBlank()) {
+            if (!StringUtils.hasText(issuer)) {
                 throw new IllegalStateException(
                         "OIDC provider did not define issuer"
                 );
             }
 
-            if (identityService.existsBy(subject, issuer)) return oauth2User;
+            if (identityService.existsBy(subject, issuer)) {
+                return oidcUser;
+            }
 
-            String email = extractEmail(oauth2User);
+            String email = oidcUser.getEmail();
+
+            if (!StringUtils.hasText(email)) {
+                throw new IllegalStateException(
+                        "OIDC provider did not return email"
+                );
+            }
 
             User user;
+
             if (userService.existsByEmail(email)) {
                 user = userService.findByEmail(email);
             } else {
@@ -70,27 +80,16 @@ public class SocialAuthService {
                     user
             );
 
-            return oauth2User;
+            return oidcUser;
         };
     }
 
-    private String extractEmail(OAuth2User oauth2User) {
-
-        String email = oauth2User.getAttribute("email");
-
-        if (email == null || email.isBlank()) {
-            throw new IllegalStateException(
-                    "OAuth2 provider did not return email"
-            );
-        }
-
-        return email;
-    }
-
-
     public static String generateId() {
         long id = ThreadLocalRandom.current()
-                .nextLong(100_000_000_000_000L, 1_000_000_000_000_000L);
+                .nextLong(
+                        100_000_000_000_000L,
+                        1_000_000_000_000_000L
+                );
 
         return Long.toString(id);
     }

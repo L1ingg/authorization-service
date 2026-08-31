@@ -8,6 +8,7 @@ import com.ling.authservice.security.email.dto.EmailRegisterResponse;
 import com.ling.authservice.security.email.dto.EmailVerificationResponse;
 import com.ling.authservice.user.User;
 import com.ling.authservice.user.UserService;
+import com.ling.authservice.user.common.UserAlreadyExistsException;
 import jakarta.persistence.EntityExistsException;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
@@ -19,8 +20,8 @@ public class EmailAuthService {
     private final UserService userService;
 
     public EmailRegisterResponse register(RegisterByEmailRequest request) {
-        if (userService.existsByEmail(request.email())) throw new EntityExistsException("User with email already exists: " + request.email());
-        if (userService.existsByUsername(request.username())) throw new EntityExistsException("User with username already exists: " + request.username());
+        if (userService.existsByEmail(request.email())) throw new UserAlreadyExistsException("User with email already exists: " + request.email());
+        if (userService.existsByUsername(request.username())) throw new UserAlreadyExistsException("User with username already exists: " + request.username());
         return emailVerificationService.request(EmailRegisterRequest.from(request));
     }
 
