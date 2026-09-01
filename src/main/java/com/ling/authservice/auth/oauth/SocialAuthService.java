@@ -22,9 +22,7 @@ public class SocialAuthService {
     private final OidcUserService delegate =
             new OidcUserService();
 
-    public OidcUser loadUser(
-            OidcUserRequest userRequest
-    ) {
+    public OidcUser loadUser(OidcUserRequest userRequest) {
 
         OidcUser oidcUser =
                 delegate.loadUser(userRequest);
@@ -38,10 +36,11 @@ public class SocialAuthService {
             );
         }
 
-        String issuer = userRequest
-                .getClientRegistration()
-                .getProviderDetails()
-                .getIssuerUri();
+        String issuer =
+                userRequest
+                        .getClientRegistration()
+                        .getProviderDetails()
+                        .getIssuerUri();
 
         if (!StringUtils.hasText(issuer)) {
             throw new IllegalStateException(
@@ -71,7 +70,7 @@ public class SocialAuthService {
         User user;
 
         /*
-         * Email уже существует —
+         * Email уже существует:
          * подключаем social identity.
          */
         if (userService.existsByEmail(email)) {
@@ -85,9 +84,7 @@ public class SocialAuthService {
              */
             user = User.builder()
                     .email(email)
-                    .username(
-                            "user_" + generateId()
-                    )
+                    .username("user_" + generateId())
                     .build();
 
             user = userService.createHashed(user);
@@ -104,11 +101,12 @@ public class SocialAuthService {
 
     private static String generateId() {
 
-        long id = ThreadLocalRandom.current()
-                .nextLong(
-                        100_000_000_000_000L,
-                        1_000_000_000_000_000L
-                );
+        long id =
+                ThreadLocalRandom.current()
+                        .nextLong(
+                                100_000_000_000_000L,
+                                1_000_000_000_000_000L
+                        );
 
         return Long.toString(id);
     }

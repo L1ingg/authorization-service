@@ -24,58 +24,58 @@ public class UserService {
     }
 
     @Transactional
-    public User create(
-            String username,
-            String email,
-            String password,
-            Set<Identity> identities,
-            Set<String> roles
-    ) {
+public User create(
+        String username,
+        String email,
+        String password,
+        Set<Identity> identities,
+        Set<String> roles
+) {
 
-        if (userRepository.existsByUsername(username)) {
-            throw new UserAlreadyExistsException(
-                    "User with username: " + username + " already exists"
-            );
-        }
+    if (userRepository.existsByUsername(username)) {
+        throw new UserAlreadyExistsException(
+                "User with username: " + username + " already exists"
+        );
+    }
 
-        if (userRepository.existsByEmail(email)) {
-            throw new UserAlreadyExistsException(
-                    "User with email: " + email + " already exists"
-            );
-        }
+    if (userRepository.existsByEmail(email)) {
+        throw new UserAlreadyExistsException(
+                "User with email: " + email + " already exists"
+        );
+    }
 
-        if (identities != null) {
-            for (Identity identity : identities) {
-                if (identityRepository.existsBySubjectAndIssuer(
-                        identity.getSubject(),
-                        identity.getIssuer()
-                )) {
-                    throw new UserAlreadyExistsException(
-                            "User already connected to: "
-                                    + identity.getIssuer()
-                    );
-                }
+    if (identities != null) {
+        for (Identity identity : identities) {
+            if (identityRepository.existsBySubjectAndIssuer(
+                    identity.getSubject(),
+                    identity.getIssuer()
+            )) {
+                throw new UserAlreadyExistsException(
+                        "User already connected to: "
+                                + identity.getIssuer()
+                );
             }
         }
-
-        User user = User.builder()
-                .username(username)
-                .email(email)
-                .password(password)
-                .identities(
-                        identities == null
-                                ? Set.of()
-                                : identities
-                )
-                .roles(
-                        roles == null || roles.isEmpty()
-                                ? Set.of("USER")
-                                : roles
-                )
-                .build();
-
-        return save(user);
     }
+
+    User user = User.builder()
+            .username(username)
+            .email(email)
+            .password(password)
+            .identities(
+                    identities == null
+                            ? Set.of()
+                            : identities
+            )
+            .roles(
+                    roles == null || roles.isEmpty()
+                            ? Set.of("USER")
+                            : roles
+            )
+            .build();
+
+    return save(user);
+}
 
     public User create(User user) {
         return create(user.getUsername(), user.getEmail(), passwordEncoder.encode(user.getPassword()), user.getIdentities(), user.getRoles());

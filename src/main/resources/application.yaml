@@ -34,6 +34,7 @@ spring:
   security:
     oauth2:
       client:
+
         registration:
 
           google:
@@ -60,36 +61,33 @@ spring:
               - email
             redirect-uri: "{baseUrl}/login/oauth2/code/{registrationId}"
 
+
         provider:
 
           google:
-            authorization-uri: https://accounts.google.com/o/oauth2/v2/auth
-            token-uri: https://oauth2.googleapis.com/token
-            jwk-set-uri: https://www.googleapis.com/oauth2/v3/certs
-            user-info-uri: https://openidconnect.googleapis.com/v1/userinfo
-            user-name-attribute: sub
+            issuer-uri: https://accounts.google.com
 
           microsoft:
-            authorization-uri: https://login.microsoftonline.com/consumers/oauth2/v2.0/authorize
-            token-uri: https://login.microsoftonline.com/consumers/oauth2/v2.0/token
-            jwk-set-uri: https://login.microsoftonline.com/consumers/discovery/v2.0/keys
-            user-info-uri: https://graph.microsoft.com/oidc/userinfo
-            user-name-attribute: sub
+            issuer-uri: https://login.microsoftonline.com/9188040d-6c67-4c5b-b112-36a304b66dad/v2.0
+
 
 server:
   port: ${SERVER_PORT:8080}
+  forward-headers-strategy: framework
+
 
 logging:
   level:
     root: INFO
     org.springframework.security: INFO
-    org.springframework.security.oauth2: INFO
+    org.springframework.security.oauth2: DEBUG
+
 
 app:
   login-page: ${LOGIN_PAGE:/login}
 
   oauth:
-    issuer: ${AUTH_ISSUER:http://localhost:8080}
-    client-id: ${APP_OAUTH_CLIENT_ID}
-    client-secret: ${APP_OAUTH_CLIENT_SECRET}
-    redirect-uri: ${APP_OAUTH_REDIRECT_URI:http://localhost:3000/oauth/callback}
+    issuer: ${AUTH_ISSUER:http://localhost}
+    client-id: ${APP_OAUTH_CLIENT_ID:public-client}
+    client-secret: ${APP_OAUTH_CLIENT_SECRET:change-me}
+    redirect-uri: ${APP_OAUTH_REDIRECT_URI:http://localhost/oauth/callback}

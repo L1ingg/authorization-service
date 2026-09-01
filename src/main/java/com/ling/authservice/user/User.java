@@ -34,6 +34,7 @@ public class User {
             cascade = CascadeType.ALL,
             orphanRemoval = true
     )
+    @Builder.Default
     private Set<Identity> identities = new HashSet<>();
 
     @ElementCollection(fetch = FetchType.EAGER)
@@ -42,5 +43,6 @@ public class User {
             joinColumns = @JoinColumn(name = "user_id")
     )
     @Column(name = "role")
+    @Builder.Default
     private Set<String> roles = new HashSet<>();
 }
